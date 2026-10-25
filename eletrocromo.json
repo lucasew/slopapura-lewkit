@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "package_id": "br.tec.lew.slopapura",
+  "app_name": "SlopApura",
+  "entry": "go:.",
+  "abis": ["arm64-v8a"]
+}

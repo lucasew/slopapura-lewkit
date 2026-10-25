@@ -1,0 +1,22 @@
+[tools]
+go = "1.27.2"
+
+[env]
+CGO_ENABLED = "0"
+GOTOOLCHAIN = "local"
+
+[tasks.generate]
+description = "Regenerate page_templ.go from page.templ"
+run = "go tool templ generate"
+
+[tasks.test]
+description = "Run the module tests"
+run = "go test ./..."
+
+[tasks.build]
+description = "Build a local binary"
+run = "go build -o bin/slopapura ."
+
+[tasks.run]
+description = "Serve the dashboard on the original UI port"
+run = "go run . -listen 127.0.0.1:8892"

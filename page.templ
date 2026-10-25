@@ -1,0 +1,169 @@
+package main
+
+import "github.com/lewtec/lewkit/x/http/asset/daisyui"
+import "github.com/lewtec/lewkit/x/http/asset/htmx"
+import "github.com/lewtec/lewkit/x/http/asset/tailwindcss"
+
+templ pageDocument(v pageView) {
+	<!DOCTYPE html>
+	<html lang="pt-BR" data-theme="dark">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="htmx-config" content='{"defaultTimeout":180000}'/>
+			<title>SlopApura — Apuração 2026 (TSE) ao vivo</title>
+			@daisyui.Load()
+			@tailwindcss.Load()
+			@htmx.Load()
+		</head>
+		<body>
+			<main class="flex min-h-screen flex-col gap-3 bg-base-100 p-3 text-base-content sm:p-4">
+				<header class="flex flex-wrap items-baseline gap-3">
+					<h1 class="text-xl font-semibold">Apuração 2026</h1>
+					<p class="text-sm opacity-70">SlopApura · divulgação oficial TSE — resultados parciais</p>
+				</header>
+				<form
+					method="get"
+					action="/"
+					class="flex flex-wrap items-end gap-3"
+					hx-get="/"
+					hx-target="#live"
+					hx-select="#live"
+					hx-swap="outerMorph"
+					hx-trigger="change, submit"
+					hx-push-url="true"
+					hx-sync="#live:replace"
+				>
+					<label class="flex flex-col gap-1 text-xs opacity-70">
+						Turno
+						<select class="select" name="turno">
+							<option value="2" selected?={ v.Turno == 2 }>2º turno (dia D)</option>
+							<option value="1" selected?={ v.Turno == 1 }>1º turno (fechado)</option>
+						</select>
+					</label>
+					<label class="flex flex-col gap-1 text-xs opacity-70">
+						Estado
+						<select class="select" name="uf">
+							for _, opt := range ufChoices {
+								<option value={ opt.Value } selected?={ opt.Value == v.UF }>{ opt.Label }</option>
+							}
+						</select>
+					</label>
+					<label class="flex items-center gap-2 text-sm" title="carimbo do presidente (abrangência nacional, em todos os turnos)">
+						<input type="hidden" name="br" value="0"/>
+						<input type="checkbox" class="checkbox" name="br" value="1" checked?={ v.PresBR }/>
+						Pres. BR
+					</label>
+					<label class="flex items-center gap-2 text-sm">
+						<input type="hidden" name="auto" value="0"/>
+						<input type="checkbox" class="checkbox" name="auto" value="1" checked?={ v.Auto }/>
+						Auto 5min
+					</label>
+					if v.Mock {
+						<input type="hidden" name="mock" value="1"/>
+					}
+					<button class="btn" type="submit">Atualizar</button>
+				</form>
+				@live(v)
+				<footer class="text-center text-xs opacity-70">Fonte: resultados.tse.jus.br (divulgação oficial) · cache 270s · SlopApura — 100% vibecoded, sem garantia de nada (WTFNMFPL)</footer>
+			</main>
+		</body>
+	</html>
+}
+
+templ live(v pageView) {
+	if v.Auto {
+		<div id="live" class="flex flex-col gap-3" hx-get={ v.PollURL } hx-trigger="every 300s" hx-select="#live" hx-swap="outerMorph" hx-target="#live" hx-sync="#live:replace">
+			@liveBody(v)
+		</div>
+	} else {
+		<div id="live" class="flex flex-col gap-3">
+			@liveBody(v)
+		</div>
+	}
+}
+
+templ liveBody(v pageView) {
+	<div class="flex items-baseline justify-between gap-3">
+		<p class={ v.StatusClass } role="status">{ v.Status }</p>
+		<p class="text-sm tabular-nums opacity-70">{ v.Clock }</p>
+	</div>
+	<div class="flex snap-x snap-proximity flex-nowrap gap-4 overflow-x-auto pb-2">
+		if v.Waiting {
+			<article class="card w-96 shrink-0 snap-start border border-base-300 bg-base-200">
+				<div class="card-body gap-2 p-4">
+					<h2 class="card-title text-base">Apuração 2026</h2>
+					<p class="text-xs opacity-70">Aguardando o TSE…</p>
+					<p class="text-sm opacity-70">Os arquivos oficiais da totalização ainda não foram publicados.</p>
+					<p class="text-sm opacity-70">Histórico de eleições anteriores: começam a aparecer entre 17h30 e 18h15.</p>
+					<p class="text-sm opacity-70">Este painel atualiza sozinho a cada 5 minutos — sem recarregar.</p>
+				</div>
+			</article>
+		} else {
+			for _, card := range v.Cards {
+				@tallyCard(card)
+			}
+		}
+	</div>
+	<p class="text-center text-xs opacity-70">{ v.Note }</p>
+}
+
+templ tallyCard(card cardView) {
+	<article class={ card.Class }>
+		<div class="card-body gap-2 p-4">
+			if card.Mock {
+				<p class="text-xs text-warning">⚠ dados de teste (fixture 2022) — não é apuração real</p>
+			}
+			<div class="flex flex-wrap items-center gap-2">
+				<h2 class="card-title text-base">{ card.Cargo } <span class="font-normal opacity-70">· { card.UF }</span></h2>
+				if card.Mock {
+					<span class="badge badge-warning">MOCK</span>
+				} else {
+					<span class="badge badge-success">AO VIVO</span>
+				}
+				if card.Definido {
+					<span class="badge badge-success">DEFINIDO</span>
+				}
+			</div>
+			if card.Proj != "" {
+				<p class="text-xs text-info">ⓘ projeção local (não oficial): { card.Proj }</p>
+			}
+			<p class="text-xs opacity-70" title={ card.Tip }>{ card.Meta }</p>
+			<div class="flex flex-col gap-2">
+				for _, row := range card.Rows {
+					@candidateRow(row)
+				}
+			</div>
+			<div class="mt-2 grid grid-cols-3 gap-2 border-t border-base-300 pt-2 text-xs">
+				<p><span class="block opacity-70">Comparecimento</span><span class="block text-sm tabular-nums">{ card.Comparecimento }</span></p>
+				<p><span class="block opacity-70">Brancos</span><span class="block text-sm tabular-nums">{ card.Brancos }</span></p>
+				<p><span class="block opacity-70">Nulos</span><span class="block text-sm tabular-nums">{ card.Nulos }</span></p>
+			</div>
+		</div>
+	</article>
+}
+
+templ candidateRow(row rowView) {
+	<div class="flex flex-col gap-1" title={ row.Tip }>
+		<div class="flex items-baseline justify-between gap-2 text-sm">
+			<span class="flex min-w-0 items-center gap-1">
+				<span class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.55rem] font-bold" style={ row.AvatarCSS }>{ row.Initials }</span>
+				<span class="tabular-nums">{ row.Numero }</span>
+				<span class={ row.NomeClass }>{ row.Nome }</span>
+				if row.Badge != "" {
+					<span class={ row.BadgeClass }>{ row.Badge }</span>
+				}
+			</span>
+			<span class="shrink-0 tabular-nums">{ row.Pct }% · { row.Votos }</span>
+		</div>
+		<div class="h-2 overflow-hidden rounded bg-base-300">
+			<div class="h-full rounded" style={ row.BarCSS }></div>
+		</div>
+		<p class="text-xs opacity-70">
+			{ row.Sub }
+			if row.Vice != "" {
+				<span> · vice { row.Vice }</span>
+			}
+		</p>
+	</div>
+}
