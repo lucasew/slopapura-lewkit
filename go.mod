@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/a-h/templ v0.3.1020
 	github.com/google/go-cmp v0.7.0
-	github.com/lewtec/lewkit v0.0.0-20261024211417-bbc129bd335d
+	github.com/lewtec/lewkit v0.0.0-20261026134556-0b80f61ca97e
 )
 
 require (
